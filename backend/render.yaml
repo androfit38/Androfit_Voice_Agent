@@ -2,13 +2,16 @@ services:
   - type: web
     name: fitness-assistant
     env: python
-    plan: starter  # Use paid plan for more memory
+    plan: starter
+    region: oregon  # or your preferred region
     buildCommand: |
-      pip install --upgrade pip
+      python -m pip install --upgrade pip
       pip install --no-cache-dir -r requirements.txt
-    startCommand: python agent.py start
+    startCommand: python agent.py
     envVars:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: PORT
         value: "8080"
+      - key: PYTHON_VERSION
+        value: "3.11"
