@@ -4,8 +4,7 @@ import logging
 from dotenv import load_dotenv
 
 from livekit import agents
-from livekit.agents.worker import Worker, WorkerOptions
-from livekit.agents import JobContext, JobProcess
+from livekit.agents import JobContext
 from livekit.plugins import (
     openai,
     noise_cancellation,
@@ -63,50 +62,27 @@ async def entrypoint(ctx: JobContext):
         assistant.start(ctx.room)
         
         # Send initial greeting
-        await assistant.say("Hey there! I'm AndrofitAI, your personal gym coach. How's your vibe today? Ready to crush it together?", allow_interruptions=True)
+        await assistant.say("Hey there! I'm AndrofitAI, your personal gym coach. How's your vibe today? Ready to crush it together?", allow_interruriptions=True)
         
     except Exception as e:
         logger.error(f"Error in entrypoint: {str(e)}")
         raise
 
 
-def main():
-    """Main entry point for the application"""
-    try:
-        # Check for required environment variables
-        required_env_vars = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'OPENAI_API_KEY']
-        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
-        
-        if missing_vars:
-            logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
-            return 1
-
-        logger.info("Starting LiveKit agent worker...")
-        
-        # Create and start worker
-        worker = Worker(
-            entrypoint_fnc=entrypoint,
-            prewarm_fnc=prewarm,
-        )
-        
-        agents.cli.run_app(WorkerOptions(worker=worker))
-        return 0
-        
-    except KeyboardInterrupt:
-        logger.info("Application stopped by user")
-        return 0
-    except Exception as e:
-        logger.error(f"Error starting agent: {str(e)}")
-        return 1
-
-
-async def prewarm(proc: JobProcess):
-    """Prewarm function to load models and prepare the agent"""
-    logger.info("Prewarming models...")
-    # Load models here if needed
-    pass
-
-
 if __name__ == "__main__":
-    import sys
-    sys.exit(main())
+    # Check for required environment variables
+    required_env_vars = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'OPENAI_API_KEY']
+    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
+        exit(1)
+
+    logger.info("Starting LiveKit agent...")
+    
+    # Use the correct CLI run method
+    agents.cli.run_app(
+        agents.WorkerOptions(
+            entrypoint_fnc=entrypoint,
+        )
+    )
