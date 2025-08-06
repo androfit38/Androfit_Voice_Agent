@@ -7,7 +7,7 @@ from livekit.plugins import (
     noise_cancellation,
     silero,
 )
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.agents import tokenize
 
 # Load environment variables from .env file
 load_dotenv()
@@ -48,7 +48,6 @@ async def entrypoint(ctx: agents.JobContext):
             voice="alloy",
         ),
         vad=silero.VAD.load(),
-        turn_detection=MultilingualModel(),
     )
 
     # Start the session with the FitnessAssistant agent
