@@ -1,3 +1,5 @@
+import os
+import asyncio
 from dotenv import load_dotenv
 
 from livekit import agents
@@ -36,47 +38,68 @@ class FitnessAssistant(Agent):
         )
 
 async def entrypoint(ctx: agents.JobContext):
-
-    session = AgentSession(
-        stt=openai.STT(
-            model="whisper-1",
-        ),
-        llm=openai.LLM(
-            model="gpt-4o-mini"
-        ),
-        tts=openai.TTS(
-            model="tts-1",
-            voice="alloy",
-            instructions="Speak in a friendly and conversational tone."
-        ),
-        vad=silero.VAD.load(),
-        turn_detection=MultilingualModel(),
-    )
-
-    # Start the session with the FitnessAssistant agent
-    await session.start(
-        room=ctx.room,
-        agent=FitnessAssistant(),
-        room_input_options=RoomInputOptions(
-            noise_cancellation=noise_cancellation.BVC(),
-        ),
-    )
-
-    # Greet the user and offer assistance
-    await session.generate_reply(
-        instructions="Greet the user and offer your assistance."
-    )
-
-if __name__ == "__main__":
     try:
-        # Run the agent app from the command line
+        session = AgentSession(
+            stt=openai.STT(
+                model="whisper-1",
+            ),
+            llm=openai.LLM(
+                model="gpt-4o-mini"
+            ),
+            tts=openai.TTS(
+                model="tts-1",
+                voice="alloy",
+                instructions="Speak in a friendly and conversational tone."
+            ),
+            vad=silero.VAD.load(),
+            turn_detection=MultilingualModel(),
+        )
+
+        # Start the session with the FitnessAssistant agent
+        await session.start(
+            room=ctx.room,
+            agent=FitnessAssistant(),
+            room_input_options=RoomInputOptions(
+                noise_cancellation=noise_cancellation.BVC(),
+            ),
+        )
+
+        # Greet the user and offer assistance
+        await session.generate_reply(
+            instructions="Greet the user and offer your assistance."
+        )
+        
+    except Exception as e:
+        print(f"Error in entrypoint: {str(e)}")
+        raise
+
+def main():
+    """Main entry point for the application"""
+    try:
+        # Check for required environment variables
+        required_env_vars = ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'OPENAI_API_KEY']
+        missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+        
+        if missing_vars:
+            print(f"Missing required environment variables: {', '.join(missing_vars)}")
+            return 1
+
+        # Run the agent app
         agents.cli.run_app(
             agents.WorkerOptions(
                 entrypoint_fnc=entrypoint,
+                port=int(os.getenv('PORT', 8080)),
             )
         )
+        return 0
+        
+    except KeyboardInterrupt:
+        print("Application stopped by user")
+        return 0
     except Exception as e:
         print(f"Error starting agent: {str(e)}")
-        # Add proper cleanup
-        import sys
-        sys.exit(1)
+        return 1
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())
