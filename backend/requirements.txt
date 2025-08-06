@@ -1,5 +1,7 @@
-# Lightweight version without Silero VAD
-livekit-agents[openai]==0.8.0
-livekit-plugins-openai==0.8.0
+livekit-agents[openai,silero,turn-detector]==0.8.0
+livekit-plugins-noise-cancellation==0.8.0
 python-dotenv==1.0.0
 livekit==0.12.0
+torch==2.1.0
+torchaudio==2.1.0
+numpy==1.24.3
