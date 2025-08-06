@@ -42,7 +42,7 @@ async def entrypoint(ctx: agents.JobContext):
             model="whisper-1",
         ),
         llm=openai.LLM(
-            model="gpt-4"
+            model="gpt-4.1-mini"
         ),
         tts=openai.TTS(
             model="tts-1",
@@ -73,7 +73,7 @@ if __name__ == "__main__":
         agents.cli.run_app(
             agents.WorkerOptions(
                 entrypoint_fnc=entrypoint,
-                timeout=180,  # Increase timeout to 180 seconds for initialization
+                timeout=60,  # Increase timeout to 60 seconds
             )
         )
     except Exception as e:
