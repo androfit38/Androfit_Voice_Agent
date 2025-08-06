@@ -36,18 +36,16 @@ class FitnessAssistant(Agent):
         )
 
 async def entrypoint(ctx: agents.JobContext):
-
     session = AgentSession(
         stt=openai.STT(
             model="whisper-1",
         ),
         llm=openai.LLM(
-            model="gpt-4.1-mini"
+            model="gpt-4o-mini"  # Fixed model name
         ),
         tts=openai.TTS(
             model="tts-1",
             voice="alloy",
-            instructions="Speak in a friendly and conversational tone."
         ),
         vad=silero.VAD.load(),
         turn_detection=MultilingualModel(),
@@ -70,19 +68,18 @@ async def entrypoint(ctx: agents.JobContext):
 if __name__ == "__main__":
     try:
         import os
-        port = int(os.environ.get("PORT", 10000))
-        # Run the agent app from the command line
+        port = int(os.environ.get("PORT", 8080))  # Changed default port for Render
+        
+        # Run the agent app with correct WorkerOptions parameters
         agents.cli.run_app(
             agents.WorkerOptions(
                 entrypoint_fnc=entrypoint,
-                timeout=300,  # Increase timeout to 5 minutes
-                port=port,  # Specify port from environment variable
-                initialization_timeout=300,  # 5 minutes for initialization
-                inference_initialization_timeout=300,  # 5 minutes for inference initialization
+                port=port,
             )
         )
     except Exception as e:
         print(f"Error starting agent: {str(e)}")
-        # Add proper cleanup
+        import traceback
+        traceback.print_exc()  # Print full traceback for better debugging
         import sys
         sys.exit(1)
