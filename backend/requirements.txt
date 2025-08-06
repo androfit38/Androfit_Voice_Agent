@@ -1,5 +1,9 @@
-livekit-agents[openai,silero,turn-detector]
-livekit-plugins-noise-cancellation
+
+livekit-agents
+livekit
+livekit-plugins-openai
+livekit-plugins-silero
 python-dotenv
-torch
-tensorflow
+torch --index-url https://download.pytorch.org/whl/cpu
+numpy
+scipy
