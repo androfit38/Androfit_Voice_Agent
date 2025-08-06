@@ -39,14 +39,14 @@ async def entrypoint(ctx: agents.JobContext):
 
     session = AgentSession(
         stt=openai.STT(
-            model="gpt-4o-transcribe",
+            model="whisper-1",
         ),
         llm=openai.LLM(
-            model="gpt-4o-mini"
+            model="gpt-4"
         ),
         tts=openai.TTS(
-            model="gpt-4o-mini-tts",
-            voice="ash",
+            model="tts-1",
+            voice="alloy",
             instructions="Speak in a friendly and conversational tone."
         ),
         vad=silero.VAD.load(),
@@ -68,7 +68,16 @@ async def entrypoint(ctx: agents.JobContext):
     )
 
 if __name__ == "__main__":
-    # Run the agent app from the command line
-    agents.cli.run_app(
-        agents.WorkerOptions(entrypoint_fnc=entrypoint)
-    )
+    try:
+        # Run the agent app from the command line
+        agents.cli.run_app(
+            agents.WorkerOptions(
+                entrypoint_fnc=entrypoint,
+                timeout=180,  # Increase timeout to 180 seconds for initialization
+            )
+        )
+    except Exception as e:
+        print(f"Error starting agent: {str(e)}")
+        # Add proper cleanup
+        import sys
+        sys.exit(1)
