@@ -1,77 +1,68 @@
 import os
 import asyncio
+import logging
 from dotenv import load_dotenv
 
-from livekit import agents
-from livekit.agents import AgentSession, Agent, RoomInputOptions
-from livekit.plugins import (
-    openai,
-    noise_cancellation,
-    silero,
-)
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit import agents, rtc
+from livekit.agents.worker import Worker, WorkerOptions
+from livekit.agents import JobContext, JobProcess
+from livekit.plugins import openai
 
 # Load environment variables from .env file
 load_dotenv()
 
-class FitnessAssistant(Agent):
-    """
-    AndrofitAI: An energetic, voice-interactive, and supportive AI personal gym coach.
-    Guides users through personalized workout sessions with motivational feedback and real-time instructions.
-    """
-    def __init__(self) -> None:
-        super().__init__(
-            instructions=(
-                "You are AndrofitAI, an energetic, voice-interactive, and supportive AI personal gym coach. "
-                "Start every workout session with a warm, personal greeting like 'How's your vibe today? Ready to crush it?' "
-                "Prompt users to share their fitness goals, experience level, available equipment, and time, then dynamically generate customized workout plans — "
-                "For example, if a user says, 'Beginner, 20 min, no equipment,' offer a suitable plan such as '20-min bodyweight HIIT: 10 squats, 10 push-ups.' "
-                "Guide workouts in real time with step-by-step verbal instructions, providing clear cues for each exercise, set, rep, and rest interval — "
-                "Support voice commands like 'Pause,' 'Skip,' or 'Make it easier' to ensure users feel in control. "
-                "Consistently deliver motivational, context-aware feedback—if a user expresses fatigue, reassure them with, 'You're tough, just two more!' "
-                "Share essential form and technique tips by describing correct posture and alignment, and confidently answer questions like 'How's a deadlift done?' "
-                "Adopt an authentic personal trainer style: build rapport with empathetic, conversational exchanges and respond to user mood or progress. "
-                "During rest intervals, initiate brief, engaging fitness discussions—for example, 'Protein aids recovery; try eggs post-workout.' "
-                "Accurately count reps using user grunts, or offer a motivating cadence to keep users on pace, cheering them through every set. "
-                "Always focus on making each session positive, safe, goal-oriented, and truly personalized."
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+async def entrypoint(ctx: JobContext):
+    """Main entrypoint for LiveKit agent"""
+    try:
+        logger.info("Starting fitness assistant session...")
+        
+        # Initialize the agent with session configuration
+        initial_ctx = agents.llm.LLMContext.create_empty()
+        initial_ctx.messages.append(
+            agents.llm.ChatMessage.create_system(
+                content=(
+                    "You are AndrofitAI, an energetic, voice-interactive, and supportive AI personal gym coach. "
+                    "Start every workout session with a warm, personal greeting like 'How's your vibe today? Ready to crush it?' "
+                    "Prompt users to share their fitness goals, experience level, available equipment, and time, then dynamically generate customized workout plans — "
+                    "For example, if a user says, 'Beginner, 20 min, no equipment,' offer a suitable plan such as '20-min bodyweight HIIT: 10 squats, 10 push-ups.' "
+                    "Guide workouts in real time with step-by-step verbal instructions, providing clear cues for each exercise, set, rep, and rest interval — "
+                    "Support voice commands like 'Pause,' 'Skip,' or 'Make it easier' to ensure users feel in control. "
+                    "Consistently deliver motivational, context-aware feedback—if a user expresses fatigue, reassure them with, 'You're tough, just two more!' "
+                    "Share essential form and technique tips by describing correct posture and alignment, and confidently answer questions like 'How's a deadlift done?' "
+                    "Adopt an authentic personal trainer style: build rapport with empathetic, conversational exchanges and respond to user mood or progress. "
+                    "During rest intervals, initiate brief, engaging fitness discussions—for example, 'Protein aids recovery; try eggs post-workout.' "
+                    "Accurately count reps using user grunts, or offer a motivating cadence to keep users on pace, cheering them through every set. "
+                    "Always focus on making each session positive, safe, goal-oriented, and truly personalized."
+                )
             )
         )
 
-async def entrypoint(ctx: agents.JobContext):
-    try:
-        session = AgentSession(
-            stt=openai.STT(
-                model="whisper-1",
-            ),
-            llm=openai.LLM(
-                model="gpt-4o-mini"
-            ),
+        # Create voice assistant with WebRTC VAD (lighter alternative)
+        assistant = agents.voice.VoiceAssistant(
+            vad=rtc.VAD.create(),  # Using WebRTC VAD instead of Silero
+            stt=openai.STT(model="whisper-1"),
+            llm=openai.LLM(model="gpt-4o-mini"),
             tts=openai.TTS(
                 model="tts-1",
                 voice="alloy",
-                instructions="Speak in a friendly and conversational tone."
             ),
-            vad=silero.VAD.load(),
-            turn_detection=MultilingualModel(),
+            chat_ctx=initial_ctx,
         )
 
-        # Start the session with the FitnessAssistant agent
-        await session.start(
-            room=ctx.room,
-            agent=FitnessAssistant(),
-            room_input_options=RoomInputOptions(
-                noise_cancellation=noise_cancellation.BVC(),
-            ),
-        )
-
-        # Greet the user and offer assistance
-        await session.generate_reply(
-            instructions="Greet the user and offer your assistance."
-        )
+        # Start the assistant
+        assistant.start(ctx.room)
+        
+        # Send initial greeting
+        await assistant.say("Hey there! I'm AndrofitAI, your personal gym coach. How's your vibe today? Ready to crush it together?", allow_interruptions=True)
         
     except Exception as e:
-        print(f"Error in entrypoint: {str(e)}")
+        logger.error(f"Error in entrypoint: {str(e)}")
         raise
+
 
 def main():
     """Main entry point for the application"""
@@ -81,24 +72,34 @@ def main():
         missing_vars = [var for var in required_env_vars if not os.getenv(var)]
         
         if missing_vars:
-            print(f"Missing required environment variables: {', '.join(missing_vars)}")
+            logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
             return 1
 
-        # Run the agent app
-        agents.cli.run_app(
-            agents.WorkerOptions(
-                entrypoint_fnc=entrypoint,
-                port=int(os.getenv('PORT', 8080)),
-            )
+        logger.info("Starting LiveKit agent worker...")
+        
+        # Create and start worker
+        worker = Worker(
+            entrypoint_fnc=entrypoint,
+            prewarm_fnc=prewarm,
         )
+        
+        agents.cli.run_app(WorkerOptions(worker=worker))
         return 0
         
     except KeyboardInterrupt:
-        print("Application stopped by user")
+        logger.info("Application stopped by user")
         return 0
     except Exception as e:
-        print(f"Error starting agent: {str(e)}")
+        logger.error(f"Error starting agent: {str(e)}")
         return 1
+
+
+async def prewarm(proc: JobProcess):
+    """Prewarm function to load models and prepare the agent"""
+    logger.info("Prewarming models...")
+    # Load models here if needed
+    pass
+
 
 if __name__ == "__main__":
     import sys
