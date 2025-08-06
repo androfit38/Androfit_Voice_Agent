@@ -1,23 +1,14 @@
 services:
   - type: web
-    name: androfitai-backend
+    name: fitness-assistant
     env: python
     buildCommand: |
-      pip install --no-cache-dir -r requirements.txt
-      python -m pip install --upgrade pip
+      pip install --upgrade pip
+      pip install -r requirements.txt
       python agent.py download-files
     startCommand: python agent.py dev
-    memory: 1024
-    maxDuration: 300
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: LIVEKIT_API_KEY
-        sync: false
-      - key: LIVEKIT_API_SECRET
-        sync: false
-      - key: LIVEKIT_URL
-        sync: false
-
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PORT
+        value: "8080"
