@@ -69,11 +69,14 @@ async def entrypoint(ctx: agents.JobContext):
 
 if __name__ == "__main__":
     try:
+        import os
+        port = int(os.environ.get("PORT", 10000))
         # Run the agent app from the command line
         agents.cli.run_app(
             agents.WorkerOptions(
                 entrypoint_fnc=entrypoint,
                 timeout=60,  # Increase timeout to 60 seconds
+                port=port,  # Specify port from environment variable
             )
         )
     except Exception as e:
