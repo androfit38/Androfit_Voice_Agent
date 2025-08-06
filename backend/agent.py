@@ -3,10 +3,15 @@ import asyncio
 import logging
 from dotenv import load_dotenv
 
-from livekit import agents, rtc
+from livekit import agents
 from livekit.agents.worker import Worker, WorkerOptions
 from livekit.agents import JobContext, JobProcess
-from livekit.plugins import openai
+from livekit.plugins import (
+    openai,
+    noise_cancellation,
+    silero,
+)
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 # Load environment variables from .env file
 load_dotenv()
@@ -41,9 +46,9 @@ async def entrypoint(ctx: JobContext):
             )
         )
 
-        # Create voice assistant with WebRTC VAD (lighter alternative)
+        # Create voice assistant
         assistant = agents.voice.VoiceAssistant(
-            vad=rtc.VAD.create(),  # Using WebRTC VAD instead of Silero
+            vad=silero.VAD.load(),
             stt=openai.STT(model="whisper-1"),
             llm=openai.LLM(model="gpt-4o-mini"),
             tts=openai.TTS(
@@ -51,6 +56,7 @@ async def entrypoint(ctx: JobContext):
                 voice="alloy",
             ),
             chat_ctx=initial_ctx,
+            turn_detection=MultilingualModel(),
         )
 
         # Start the assistant
