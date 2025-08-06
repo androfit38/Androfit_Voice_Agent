@@ -2,11 +2,11 @@ services:
   - type: web
     name: fitness-assistant
     env: python
+    plan: starter  # Use paid plan for more memory
     buildCommand: |
       pip install --upgrade pip
-      pip install -r requirements.txt
-      python agent.py download-files
-    startCommand: python agent.py dev
+      pip install --no-cache-dir -r requirements.txt
+    startCommand: python agent.py start
     envVars:
       - key: PYTHONUNBUFFERED
         value: "1"
