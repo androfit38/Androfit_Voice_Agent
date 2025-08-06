@@ -6,7 +6,7 @@ services:
       pip install --no-cache-dir -r requirements.txt
       python -m pip install --upgrade pip
       python agent.py download-files
-    startCommand: python agent.py start
+    startCommand: python agent.py dev
     memory: 1024
     maxDuration: 300
     envVars:
@@ -20,3 +20,4 @@ services:
         sync: false
       - key: LIVEKIT_URL
         sync: false
+
