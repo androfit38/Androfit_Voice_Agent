@@ -75,8 +75,10 @@ if __name__ == "__main__":
         agents.cli.run_app(
             agents.WorkerOptions(
                 entrypoint_fnc=entrypoint,
-                timeout=60,  # Increase timeout to 60 seconds
+                timeout=300,  # Increase timeout to 5 minutes
                 port=port,  # Specify port from environment variable
+                initialization_timeout=300,  # 5 minutes for initialization
+                inference_initialization_timeout=300,  # 5 minutes for inference initialization
             )
         )
     except Exception as e:
