@@ -6,3 +6,6 @@ torchaudio
 numpy
 scipy
 livekit
+livekit-agents[openai,silero,turn-detector]
+livekit-plugins-noise-cancellation
+
