@@ -7,10 +7,8 @@ from livekit import agents
 from livekit.agents import JobContext
 from livekit.plugins import (
     openai,
-    noise_cancellation,
     silero,
 )
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 # Load environment variables from .env file
 load_dotenv()
@@ -55,7 +53,7 @@ async def entrypoint(ctx: JobContext):
             )
         )
 
-        # Create voice assistant with explicit configuration
+        # Create voice assistant with simplified configuration for better stability
         logger.info("Initializing voice assistant components...")
         
         # Initialize components separately for better error handling
@@ -87,14 +85,15 @@ async def entrypoint(ctx: JobContext):
             logger.error(f"Failed to initialize TTS: {e}")
             raise
 
-        # Create voice assistant
+        # Create voice assistant with simpler turn detection
         assistant = agents.voice.VoiceAssistant(
             vad=vad,
             stt=stt,
             llm=llm,
             tts=tts,
             chat_ctx=initial_ctx,
-            turn_detection=MultilingualModel(),
+            # Remove MultilingualModel which might be causing issues
+            # turn_detection=MultilingualModel(),
         )
         
         logger.info("Voice assistant created, starting...")
@@ -123,6 +122,10 @@ async def entrypoint(ctx: JobContext):
         # Keep the session alive
         logger.info("Agent session active, waiting for interactions...")
         
+        # Keep the process running
+        while True:
+            await asyncio.sleep(1)
+        
     except Exception as e:
         logger.error(f"Error in entrypoint: {str(e)}")
         raise
@@ -144,10 +147,12 @@ if __name__ == "__main__":
     logger.info("Starting LiveKit agent...")
     
     try:
-        # Use the correct CLI run method with additional options
+        # Use simplified worker options to avoid inference subprocess issues
         agents.cli.run_app(
             agents.WorkerOptions(
                 entrypoint_fnc=entrypoint,
+                # Remove inference-specific options that might cause subprocess issues
+                prewarm_fnc=None,  # Disable prewarming
             )
         )
     except Exception as e:
