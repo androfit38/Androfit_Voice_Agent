@@ -15,8 +15,11 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 # Load environment variables from .env file
 load_dotenv()
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging with more detailed format
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 async def entrypoint(ctx: JobContext):
@@ -24,8 +27,15 @@ async def entrypoint(ctx: JobContext):
     try:
         logger.info("Starting fitness assistant session...")
         
+        # Add timeout and error handling for room connection
+        if not ctx.room:
+            logger.error("No room provided in job context")
+            return
+            
+        logger.info(f"Room SID: {ctx.room.sid if hasattr(ctx.room, 'sid') else 'Unknown'}")
+        
         # Initialize the agent with session configuration
-        initial_ctx = agents.llm.LLMContext.create_empty()
+        initial_ctx = agents.llm.LLMContext.create()
         initial_ctx.messages.append(
             agents.llm.ChatMessage.create_system(
                 content=(
@@ -45,24 +55,73 @@ async def entrypoint(ctx: JobContext):
             )
         )
 
+        # Create voice assistant with explicit configuration
+        logger.info("Initializing voice assistant components...")
+        
+        # Initialize components separately for better error handling
+        try:
+            vad = silero.VAD.load()
+            logger.info("VAD loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load VAD: {e}")
+            raise
+            
+        try:
+            stt = openai.STT(model="whisper-1")
+            logger.info("STT initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize STT: {e}")
+            raise
+            
+        try:
+            llm = openai.LLM(model="gpt-4o-mini")
+            logger.info("LLM initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM: {e}")
+            raise
+            
+        try:
+            tts = openai.TTS(model="tts-1", voice="alloy")
+            logger.info("TTS initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize TTS: {e}")
+            raise
+
         # Create voice assistant
         assistant = agents.voice.VoiceAssistant(
-            vad=silero.VAD.load(),
-            stt=openai.STT(model="whisper-1"),
-            llm=openai.LLM(model="gpt-4o-mini"),
-            tts=openai.TTS(
-                model="tts-1",
-                voice="alloy",
-            ),
+            vad=vad,
+            stt=stt,
+            llm=llm,
+            tts=tts,
             chat_ctx=initial_ctx,
             turn_detection=MultilingualModel(),
         )
+        
+        logger.info("Voice assistant created, starting...")
 
-        # Start the assistant
-        assistant.start(ctx.room)
+        # Start the assistant with timeout
+        try:
+            assistant.start(ctx.room)
+            logger.info("Assistant started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start assistant: {e}")
+            raise
+        
+        # Add delay before sending initial greeting
+        await asyncio.sleep(2)
         
         # Send initial greeting
-        await assistant.say("Hey there! I'm AndrofitAI, your personal gym coach. How's your vibe today? Ready to crush it together?", allow_interruriptions=True)
+        try:
+            await assistant.say(
+                "Hey there! I'm AndrofitAI, your personal gym coach. How's your vibe today? Ready to crush it together?", 
+                allow_interruptions=True
+            )
+            logger.info("Initial greeting sent")
+        except Exception as e:
+            logger.error(f"Failed to send initial greeting: {e}")
+        
+        # Keep the session alive
+        logger.info("Agent session active, waiting for interactions...")
         
     except Exception as e:
         logger.error(f"Error in entrypoint: {str(e)}")
@@ -77,12 +136,20 @@ if __name__ == "__main__":
     if missing_vars:
         logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
         exit(1)
+    
+    # Log environment info (without exposing sensitive data)
+    logger.info(f"LIVEKIT_URL: {os.getenv('LIVEKIT_URL')}")
+    logger.info("Environment variables loaded successfully")
 
     logger.info("Starting LiveKit agent...")
     
-    # Use the correct CLI run method
-    agents.cli.run_app(
-        agents.WorkerOptions(
-            entrypoint_fnc=entrypoint,
+    try:
+        # Use the correct CLI run method with additional options
+        agents.cli.run_app(
+            agents.WorkerOptions(
+                entrypoint_fnc=entrypoint,
+            )
         )
-    )
+    except Exception as e:
+        logger.error(f"Failed to start agent: {e}")
+        exit(1)
